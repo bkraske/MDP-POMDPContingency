@@ -70,7 +70,7 @@ function init_cf(;
     )
 
     #State List
-    n_x = -1:1:segment_total
+    n_x = -2:1:segment_total
     n_f = 0:1:2 #Failure states
     n_o = (:faulty,:ok)
 
@@ -162,7 +162,7 @@ function POMDPs.transition(m::CF_POMDP,s::cf_st,a::cf_at)
     elseif a == :l && s.x ∈ m.land_states
         xp = m.term_state_good ###UPDATE THESE ABOVE
     end
-
+    
     #Bounce when attempting to exit grid################
     if xp in m.n_x
         xp = xp
