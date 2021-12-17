@@ -4,6 +4,7 @@
 using POMDPs
 using BeliefUpdaters
 
+
 ##Previous Observation "Solver" and Updater
 struct PrevObsUpdater{P<:POMDP} <: Updater
     pomdp::P
@@ -80,17 +81,17 @@ function POMDPs.action(p::MaxBPolicy, b)
 end
 
 #Updater
-struct MaxBeliefUpdater{P<:POMDP} <: Updater
-    pomdp::P
-end
+# struct MaxBeliefUpdater{P<:POMDP} <: Updater
+#     pomdp::P
+# end
+#
+# function BeliefUpdaters.initialize_belief(u::MaxBeliefUpdater, d::Any)
+#     return initialize_belief(DiscreteUpdater(u.pomdp),d)
+# end
 
-function BeliefUpdaters.initialize_belief(u::MaxBeliefUpdater, d::Any)
-    return initialize_belief(DiscreteUpdater(u.pomdp),d)
-end
-
-function BeliefUpdaters.update(u::MaxBeliefUpdater, b::DiscreteBelief, action, obs)
-    bp = update(DiscreteUpdater(u.pomdp),b,action,obs)
-    ind = argmax(b.b)
-    bn = b.state_list[ind]
-    return initialize_belief(DiscreteUpdater(u.pomdp),Deterministic(bn))
-end
+# function BeliefUpdaters.update(u::MaxBeliefUpdater, b::DiscreteBelief, action, obs)
+#     bp = update(DiscreteUpdater(u.pomdp),b,action,obs)
+#     ind = argmax(b.b)
+#     bn = b.state_list[ind]
+#     return initialize_belief(DiscreteUpdater(u.pomdp),Deterministic(bn))
+# end
