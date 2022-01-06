@@ -4,6 +4,7 @@
 using POMDPs,POMDPModelTools, POMDPSimulators, POMDPPolicies, BeliefUpdaters
 using QMDP, DiscreteValueIteration, SARSOP
 using Statistics, Test, DataFrames, Plots, CSV, Dates, Random
+using POMDPPolicyGraphs
 
 include("CFPOMDP_PathBased.jl")
 include("CFPOMDP_PathBased_Solvers.jl")
@@ -208,6 +209,28 @@ function run_MC_mdp(m, n_runs, solvers) #Above for MDP
     return theframe = DataFrame([:Policy=>names,:Mean_Disc_Rew=>reward_mean, :SE_Disc_Rew=>reward_std, :Fract_Goal=>target, :SE_Goal=>target_std, :Fract_Fail=>failed, :SE_Fail=>failed_std,
                :pnorm1 => m.pnorm1, :pnorm2 => m.pnorm2, :pobs1 => m.pobs1, :pobs2 => m.pobs2, :rew => m.bad_rew, :stps_up => steps])
 end
+
+#Generate and Evaluate Policy Graphs
+function run_PGs(m, solvers)
+    rew_fxn_list = [actual_rew,completed,failed]
+    names = []
+    rewards = []
+    completions = []
+    failures = []
+    std_devs = zeros(length(solvers))
+    for (solver,name,updater) in solvers
+        pg = ExtractBeliefPolicyGraph(m,updater,pol::Policy,b0::DiscreteBelief,precision::Int64)
+        for rew_fxn in rew_fxn_list
+            values = EvalPolicyGraph(m,b0,pg;tolerance=tolerance,rewardfunction=rew_fxn) #SPECIFY A LIST OF REWARD FUNCTIONS HERE --> ARRIVAL, FAILURE, ETC.
+            push!(results_list,values)
+            push!(names,name)
+        end
+    end
+    return theframe = DataFrame([:Policy=>names,:Mean_Disc_Rew=>rewards, :SE_Disc_Rew=>std_devs, :Fract_Goal=>completions, :SE_Goal=>std_devs, :Fract_Fail=>failures, :SE_Fail=>std_devs,
+               :pnorm1 => m.pnorm1, :pnorm2 => m.pnorm2, :pobs1 => m.pobs1, :pobs2 => m.pobs2, :rew => m.bad_rew, :stps_up => std_devs])
+end
+
+
 
 #Vary the probability of transition and observation across problems and run MC sims
 function vary_probs_obs(n_runs,pobs1r=1.0:-0.2:0.5,pnorm1r=(0.99,0.96,0.93),pnorm2r=(0.99,0.9,0.75),rew= (-0.1,-0.5,-1.0,-2.5,-5.0,-7.5,-10.0,-20.0))#pnorm1r=1.0:-0.05:0.8)
