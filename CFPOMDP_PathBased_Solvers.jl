@@ -10,7 +10,7 @@ struct PrevObsUpdater{P<:POMDP} <: Updater
     pomdp::P
 end
 
-BeliefUpdaters.initialize_belief(u::PrevObsUpdater, d::Any) = d
+BeliefUpdaters.initialize_belief(u::PrevObsUpdater, d::Any) = initialize_belief(DiscreteUpdater(u.pomdp),d)
 
 function BeliefUpdaters.update(u::PrevObsUpdater, b, action, obs)
     if isa(obs,cf_ot)
