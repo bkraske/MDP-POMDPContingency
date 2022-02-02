@@ -72,7 +72,7 @@ function POMDPs.solve(cs::MaxBSolver, p::POMDP)
 end
 
 function POMDPs.action(p::MaxBPolicy, b)
-    print(b)
+    # print(b)
     if isa(b,DiscreteBelief)
         ind = argmax(b.b)
         p0 = b.state_list[ind]
