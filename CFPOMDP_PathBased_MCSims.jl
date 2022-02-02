@@ -97,7 +97,7 @@ end
 function count_fail(m, result)
     fail_count = []
     for i in 1:length(result.final_state)
-        if result.final_state[i].f==2 || result.final_state[i].x == -1
+        if result.final_state[i].f==m.term_fail || result.final_state[i].x == m.term_state_bad
             push!(fail_count,1)
         elseif result.final_state[i].f==1 || result.final_state[i].f ==0
             push!(fail_count,0)
@@ -210,9 +210,28 @@ function run_MC_mdp(m, n_runs, solvers) #Above for MDP
                :pnorm1 => m.pnorm1, :pnorm2 => m.pnorm2, :pobs1 => m.pobs1, :pobs2 => m.pobs2, :rew => m.bad_rew, :stps_up => steps])
 end
 
-#Generate and Evaluate Policy Graphs
+##Generate and Evaluate Policy Graphs
+actual_rew = vectorizedReward
+
+function completedReward(m::CF_POMDP,s,a,sp)
+    if sp.x == m.rew_state
+        return 1.0
+    else
+        return 0.0
+    end
+end
+
+function failedReward(m::CF_POMDP,s,a,sp)
+    if sp.f == m.term_fail || sp.x == m.term_state_bad
+        return 1.0
+    else
+        return 0.0
+    end
+end
+
+
 function run_PGs(m, solvers)
-    rew_fxn_list = [actual_rew,completed,failed]
+    rew_fxn_list = [vectorizedReward,completedReward,failedReward]
     names = []
     rewards = []
     completions = []
