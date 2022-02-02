@@ -146,7 +146,7 @@ function count_steps_bel(m) #Same as above for DiscreteBelief
 end
 
 ##Generate MC Data
-function run_MC(m, n_runs, solvers) #Run all policies on given problem definition
+function run_MC(m, n_runs, solvers) #Run all policies on given problem definition #Change "solver" to "policy"
     results_list = []
     reward_mean = []
     reward_std = []
@@ -157,7 +157,7 @@ function run_MC(m, n_runs, solvers) #Run all policies on given problem definitio
     names = []
     # steps = count_steps_bel(m)
     steps = 0
-    for (solver,name,updater) in solvers
+    for (solver,name,updater,graphtype) in solvers
         # println("Solver $name")
         sims = [Sim(m,solver,updater) for i in 1:n_runs]
         # println(updater)
@@ -173,6 +173,15 @@ function run_MC(m, n_runs, solvers) #Run all policies on given problem definitio
         push!(failed_std, count_fail(m,result)[2])
         push!(target, count_complete(m,result)[1])
         push!(target_std, count_complete(m,result)[2])
+
+        # [exact_reward,exact_completed,exact_failed,exact_steps] = run_single_PG(m, solver, updater, graphtype, precision=3)
+        # push!(names*"-E",name)
+        # push!(reward_mean, exact_reward)
+        # push!(reward_std, 0.0)
+        # push!(failed, exact_failed)
+        # push!(failed_std, 0.0)
+        # push!(target, exact_completed)
+        # push!(target_std, 0.0)
     end
     return theframe = DataFrame([:Policy=>names,:Mean_Disc_Rew=>reward_mean, :SE_Disc_Rew=>reward_std, :Fract_Goal=>target, :SE_Goal=>target_std, :Fract_Fail=>failed, :SE_Fail=>failed_std,
                :pnorm1 => m.pnorm1, :pnorm2 => m.pnorm2, :pobs1 => m.pobs1, :pobs2 => m.pobs2, :rew => m.bad_rew, :stps_up => steps])
@@ -211,43 +220,59 @@ function run_MC_mdp(m, n_runs, solvers) #Above for MDP
 end
 
 ##Generate and Evaluate Policy Graphs
-actual_rew = vectorizedReward
-
 function completedReward(m::CF_POMDP,s,a,sp)
     if sp.x == m.rew_state
-        return 1.0
+        return [1.0]
     else
-        return 0.0
+        return [0.0]
     end
 end
 
 function failedReward(m::CF_POMDP,s,a,sp)
     if sp.f == m.term_fail || sp.x == m.term_state_bad
-        return 1.0
+        return [1.0]
     else
-        return 0.0
+        return [0.0]
     end
 end
 
-
-function run_PGs(m, solvers)
-    rew_fxn_list = [vectorizedReward,completedReward,failedReward]
-    names = []
-    rewards = []
-    completions = []
-    failures = []
-    std_devs = zeros(length(solvers))
-    for (solver,name,updater) in solvers
-        pg = ExtractBeliefPolicyGraph(m,updater,pol::Policy,b0::DiscreteBelief,precision::Int64)
-        for rew_fxn in rew_fxn_list
-            values = EvalPolicyGraph(m,b0,pg;tolerance=tolerance,rewardfunction=rew_fxn) #SPECIFY A LIST OF REWARD FUNCTIONS HERE --> ARRIVAL, FAILURE, ETC.
-            push!(results_list,values)
-            push!(names,name)
-        end
-    end
-    return theframe = DataFrame([:Policy=>names,:Mean_Disc_Rew=>rewards, :SE_Disc_Rew=>std_devs, :Fract_Goal=>completions, :SE_Goal=>std_devs, :Fract_Fail=>failures, :SE_Fail=>std_devs,
-               :pnorm1 => m.pnorm1, :pnorm2 => m.pnorm2, :pobs1 => m.pobs1, :pobs2 => m.pobs2, :rew => m.bad_rew, :stps_up => std_devs])
+function stepsReward(m::CF_POMDP,s,a,sp)
+    return [1.0]
 end
+
+function run_single_PG(m, policy, updater, graphtype, precision)
+    rew_fxn_list = [vectorizedReward,completedReward,failedReward,stepsReward]
+    result_array = Vector{Float64}(undef,length(rew_fxn_list))
+    b0 = initialize_belief(updater,initialstate(m))
+    if graphtype == :belief
+        pg = ExtractBeliefPolicyGraph(m,updater,policy::Policy,b0::DiscreteBelief,precision::Int64)
+    else
+        pg = ExtractPolicyGraph(m,updater,policy::Policy,b0::DiscreteBelief)
+    end
+    for rew_fxn in rew_fxn_list
+        push!(result_array,EvalPolicyGraph(m,b0,pg;tolerance=tolerance,rewardfunction=rew_fxn))
+    end
+    return result_array
+end
+
+# function run_PGs(m, solvers)
+#     rew_fxn_list = [vectorizedReward,completedReward,failedReward]
+#     names = []
+#     rewards = []
+#     completions = []
+#     failures = []
+#     std_devs = zeros(length(solvers))
+#     for (solver,name,updater) in solvers
+#         pg = ExtractBeliefPolicyGraph(m,updater,pol::Policy,b0::DiscreteBelief,precision::Int64)
+#         for rew_fxn in rew_fxn_list
+#             values = EvalPolicyGraph(m,b0,pg;tolerance=tolerance,rewardfunction=rew_fxn) #SPECIFY A LIST OF REWARD FUNCTIONS HERE --> ARRIVAL, FAILURE, ETC.
+#             push!(results_list,values)
+#             push!(names,name)
+#         end
+#     end
+#     return theframe = DataFrame([:Policy=>names,:Mean_Disc_Rew=>rewards, :SE_Disc_Rew=>std_devs, :Fract_Goal=>completions, :SE_Goal=>std_devs, :Fract_Fail=>failures, :SE_Fail=>std_devs,
+#                :pnorm1 => m.pnorm1, :pnorm2 => m.pnorm2, :pobs1 => m.pobs1, :pobs2 => m.pobs2, :rew => m.bad_rew, :stps_up => std_devs])
+# end
 
 
 
@@ -266,8 +291,9 @@ function vary_probs_obs(n_runs,pobs1r=1.0:-0.2:0.5,pnorm1r=(0.99,0.96,0.93),pnor
         p_sarsop = solve(SARSOPSolver(precision=0.002,verbose = false),cfv)
         p_qmdp = AlphaVectorPolicy(cfv, mdp_pol.qmat, mdp_pol.action_map)
 
-        solvers = [(p_sarsop, "SARSOP",DiscreteUpdater(cfv)),(p_qmdp, "QMDP",DiscreteUpdater(cfv)),(p_prevobs,"Prev Obs MDP",PreviousObservationUpdater()),(p_maxb, "Max Wt MDP",DiscreteUpdater(cfv))]
+        solvers = [(p_sarsop, "SARSOP",DiscreteUpdater(cfv),:alpha),(p_qmdp, "QMDP",DiscreteUpdater(cfv),:belief),(p_prevobs,"Prev Obs MDP",PreviousObservationUpdater(),:belief),(p_maxb, "Max Wt MDP",DiscreteUpdater(cfv),:belief)]
         result = run_MC(cfv,n_runs,solvers);
+        exact_result = run_PGs
         results = vcat(results,result);
         #add UnderlyingMDP to solution set
         mdp_result = run_MC_mdp(cfv,n_runs,[(mdp_pol,"Full MDP")]);
