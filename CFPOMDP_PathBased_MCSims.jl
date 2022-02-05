@@ -145,6 +145,10 @@ function count_steps_bel(m) #Same as above for DiscreteBelief
     return c::Int64
 end
 
+function withintol(sim_mean,sim_sem,exact)
+    within_tol2 = (sim_mean+(sim_sem)>=exact)&&(sim_mean-(sim_sem)<=exact)
+    return within_tol2
+end
 ##Generate MC Data
 function run_MC(m, n_runs, solvers) #Run all policies on given problem definition #Change "solver" to "policy"
     results_list = []
@@ -175,13 +179,14 @@ function run_MC(m, n_runs, solvers) #Run all policies on given problem definitio
         push!(target_std, count_complete(m,result)[2])
 
         # [exact_reward,exact_completed,exact_failed,exact_steps] = run_single_PG(m, solver, updater, graphtype, precision=3)
-        # push!(names*"-E",name)
-        # push!(reward_mean, exact_reward)
-        # push!(reward_std, 0.0)
-        # push!(failed, exact_failed)
-        # push!(failed_std, 0.0)
-        # push!(target, exact_completed)
-        # push!(target_std, 0.0)
+        exact_reward,exact_completed,exact_failed = run_single_PG(m, solver, updater, graphtype, 3)
+        push!(names,name*"-E")
+        push!(reward_std, withintol(last(reward_mean),last(reward_std),exact_reward))
+        push!(reward_mean, exact_reward)
+        push!(failed_std, withintol(last(failed),last(failed_std),exact_failed))
+        push!(failed, exact_failed)
+        push!(target_std, withintol(last(target),last(target_std),exact_completed))
+        push!(target, exact_completed)
     end
     return theframe = DataFrame([:Policy=>names,:Mean_Disc_Rew=>reward_mean, :SE_Disc_Rew=>reward_std, :Fract_Goal=>target, :SE_Goal=>target_std, :Fract_Fail=>failed, :SE_Fail=>failed_std,
                :pnorm1 => m.pnorm1, :pnorm2 => m.pnorm2, :pobs1 => m.pobs1, :pobs2 => m.pobs2, :rew => m.bad_rew, :stps_up => steps])
@@ -240,17 +245,20 @@ function stepsReward(m::CF_POMDP,s,a,sp)
     return [1.0]
 end
 
-function run_single_PG(m, policy, updater, graphtype, precision)
-    rew_fxn_list = [vectorizedReward,completedReward,failedReward,stepsReward]
+function run_single_PG(m, policy, updater, graphtype, precision; tolerance = 0.001)
+    up = updater
+    # rew_fxn_list = [vectorizedReward,completedReward,failedReward,stepsReward]
+    rew_fxn_list = [(vectorizedReward,true),(completedReward,false),(failedReward,false)]
     result_array = Vector{Float64}(undef,length(rew_fxn_list))
-    b0 = initialize_belief(updater,initialstate(m))
+    b0 = initialize_belief(up,initialstate(m))
     if graphtype == :belief
         pg = ExtractBeliefPolicyGraph(m,updater,policy::Policy,b0::DiscreteBelief,precision::Int64)
     else
         pg = ExtractPolicyGraph(m,updater,policy::Policy,b0::DiscreteBelief)
     end
-    for rew_fxn in rew_fxn_list
-        push!(result_array,EvalPolicyGraph(m,b0,pg;tolerance=tolerance,rewardfunction=rew_fxn))
+    for (i,(rew_fxn,disc)) in enumerate(rew_fxn_list)
+        result_array[i] = EvalPolicyGraph(m,b0,pg;tolerance=tolerance,rewardfunction=rew_fxn,disc_io=disc)[1,3]
+        # println(result_array)
     end
     return result_array
 end
@@ -278,7 +286,6 @@ end
 
 #Vary the probability of transition and observation across problems and run MC sims
 function vary_probs_obs(n_runs,pobs1r=1.0:-0.2:0.5,pnorm1r=(0.99,0.96,0.93),pnorm2r=(0.99,0.9,0.75),rew= (-0.1,-0.5,-1.0,-2.5,-5.0,-7.5,-10.0,-20.0))#pnorm1r=1.0:-0.05:0.8)
-
     results = []
     for i in collect(pobs1r), k in collect(pobs1r), j in collect(pnorm1r), l in collect(pnorm2r), rv in collect(rew)#collect(pnorm1r)
         println("=== rew: $rv, pobs1: $i, pobs2: $k, pnorm1: $j, pnorm2: $l")
