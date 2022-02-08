@@ -48,7 +48,7 @@ function POMDPs.action(p::PrevObsPolicy, b)
         end
         bn = cf_st(b.x,f_new)
     elseif isa(b,DiscreteBelief{CF_POMDP, cf_st})
-        for (state,value) in weighted_iterator(bel0)
+        for (state,value) in weighted_iterator(b)
             if value == 1
                 bn = state
             end

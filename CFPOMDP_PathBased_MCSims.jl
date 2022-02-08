@@ -161,7 +161,7 @@ function run_MC(m, n_runs, solvers) #Run all policies on given problem definitio
     names = []
     # steps = count_steps_bel(m)
     steps = 0
-    for (solver,name,updater,graphtype) in solvers
+    for (solver,name,updater,graphtype,precision) in solvers
         # println("Solver $name")
         sims = [Sim(m,solver,updater) for i in 1:n_runs]
         # println(updater)
@@ -179,7 +179,7 @@ function run_MC(m, n_runs, solvers) #Run all policies on given problem definitio
         push!(target_std, count_complete(m,result)[2])
 
         # [exact_reward,exact_completed,exact_failed,exact_steps] = run_single_PG(m, solver, updater, graphtype, precision=3)
-        exact_reward,exact_completed,exact_failed = run_single_PG(m, solver, updater, graphtype, 3)
+        exact_reward,exact_completed,exact_failed = run_single_PG(m, solver, updater, graphtype, precision)
         push!(names,name*"-E")
         push!(reward_std, withintol(last(reward_mean),last(reward_std),exact_reward))
         push!(reward_mean, exact_reward)
@@ -298,16 +298,15 @@ function vary_probs_obs(n_runs,pobs1r=1.0:-0.2:0.5,pnorm1r=(0.99,0.96,0.93),pnor
         p_sarsop = solve(SARSOPSolver(precision=0.002,verbose = false),cfv)
         p_qmdp = AlphaVectorPolicy(cfv, mdp_pol.qmat, mdp_pol.action_map)
 
-        solvers = [(p_sarsop, "SARSOP",DiscreteUpdater(cfv),:alpha),(p_qmdp, "QMDP",DiscreteUpdater(cfv),:belief),(p_prevobs,"Prev Obs MDP",PreviousObservationUpdater(),:belief),(p_maxb, "Max Wt MDP",DiscreteUpdater(cfv),:belief)]
+        solvers = [(p_sarsop, "SARSOP",DiscreteUpdater(cfv),:alpha,0),(p_qmdp, "QMDP",DiscreteUpdater(cfv),:belief,3),(p_prevobs,"Prev Obs MDP",PrevObsUpdater(cfv),:belief,3),(p_maxb, "Max Wt MDP",DiscreteUpdater(cfv),:belief,3)]
         result = run_MC(cfv,n_runs,solvers);
-        exact_result = run_PGs
         results = vcat(results,result);
         #add UnderlyingMDP to solution set
         mdp_result = run_MC_mdp(cfv,n_runs,[(mdp_pol,"Full MDP")]);
         results = vcat(results,mdp_result);
     end
     results = reduce(vcat,results);
-    # CSV.write("Comp_Fail_"*Dates.format(now(),"dd_mm_HH:MM:SS")*".csv", results)
+    CSV.write("Comp_Fail_"*Dates.format(now(),"dd_mm_HH:MM:SS")*".csv", results)
     return results
 end
 
