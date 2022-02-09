@@ -252,7 +252,7 @@ function run_single_PG(m, policy, updater, graphtype, precision; tolerance = 0.0
     result_array = Vector{Float64}(undef,length(rew_fxn_list))
     b0 = initialize_belief(up,initialstate(m))
     if graphtype == :belief
-        pg = ExtractBeliefPolicyGraph(m,updater,policy::Policy,b0::DiscreteBelief,precision::Int64)
+        pg = ExtractBeliefPolicyGraph(m,updater,policy::Policy,b0::DiscreteBelief,precision)
     else
         pg = ExtractPolicyGraph(m,updater,policy::Policy,b0::DiscreteBelief)
     end
