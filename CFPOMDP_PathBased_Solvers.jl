@@ -58,12 +58,12 @@ function POMDPs.action(p::PrevObsPolicy, b)
 end
 
 ##Maximum Likelihood "Solver"
-struct MaxBSolver <: Solver
-    vip::ValueIterationPolicy
+struct MaxBSolver{VIP<:ValueIterationPolicy} <: Solver
+    vip::VIP
 end
-struct MaxBPolicy{P<:POMDP} <: Policy
+struct MaxBPolicy{P<:POMDP, VIP<:ValueIterationPolicy} <: Policy
     pomdp::P
-    vip::ValueIterationPolicy
+    vip::VIP
 end
 
 function POMDPs.solve(cs::MaxBSolver, p::POMDP)
@@ -71,13 +71,10 @@ function POMDPs.solve(cs::MaxBSolver, p::POMDP)
     return MaxBPolicy(p,cs.vip)
 end
 
-function POMDPs.action(p::MaxBPolicy, b)
-    # print(b)
-    if isa(b,DiscreteBelief)
-        ind = argmax(b.b)
-        p0 = b.state_list[ind]
-    end
-    return action(p.vip,p0) #otherwise, do optimal aggresive action
+function POMDPs.action(p::MaxBPolicy, b::DiscreteBelief)
+    ind = argmax(b.b)
+    p0 = b.state_list[ind]
+    return action(p.vip,p0)
 end
 
 #Updater
