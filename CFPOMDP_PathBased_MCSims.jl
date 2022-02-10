@@ -241,6 +241,7 @@ function failedReward(m::CF_POMDP,s,a,sp)
     end
 end
 
+
 function stepsReward(m::CF_POMDP,s,a,sp)
     return [1.0]
 end
@@ -248,7 +249,7 @@ end
 function run_single_PG(m, policy, updater, graphtype, precision; tolerance = 0.001)
     up = updater
     # rew_fxn_list = [vectorizedReward,completedReward,failedReward,stepsReward]
-    rew_fxn_list = [(vectorizedReward,true),(completedReward,false),(failedReward,false)]
+    rew_fxn_list = [(vectorizedReward,true),(completedReward,true),(failedReward,true)]
     result_array = Vector{Float64}(undef,length(rew_fxn_list))
     b0 = initialize_belief(up,initialstate(m))
     if graphtype == :belief
@@ -263,6 +264,36 @@ function run_single_PG(m, policy, updater, graphtype, precision; tolerance = 0.0
     return result_array
 end
 
+
+function allrewards(m::CF_POMDP,s,a,sp)
+    r1 = reward(m,s,a,sp)
+    if sp.x == m.rew_state
+        r2 = 1.0
+    else
+        r2 = 0.0
+    end
+    if sp.f == m.term_fail || sp.x == m.term_state_bad
+        r3 = 1.0
+    else
+        r3 = 0.0
+    end
+    return [r1,r2,r3]
+end
+
+function run_single_PG2(m, policy, updater, graphtype, precision; tolerance = 0.001, disc = discount(m))
+    up = updater
+    # rew_fxn_list = [vectorizedReward,completedReward,failedReward,stepsReward]
+    # rew_fxn_list = [(vectorizedReward,true),(completedReward,false),(failedReward,false)]
+    result_array = Vector{Float64}(undef,3)
+    b0 = initialize_belief(up,initialstate(m))
+    if graphtype == :belief
+        pg = ExtractBeliefPolicyGraph(m,updater,policy::Policy,b0::DiscreteBelief,precision)
+    else
+        pg = ExtractPolicyGraph(m,updater,policy::Policy,b0::DiscreteBelief)
+    end
+    result_array = EvalPolicyGraph(m,b0,pg;tolerance=tolerance,rewardfunction=allrewards,disc=disc)[1,3,:]
+    return result_array
+end
 # function run_PGs(m, solvers)
 #     rew_fxn_list = [vectorizedReward,completedReward,failedReward]
 #     names = []
@@ -298,7 +329,7 @@ function vary_probs_obs(n_runs,pobs1r=1.0:-0.2:0.5,pnorm1r=(0.99,0.96,0.93),pnor
         p_sarsop = solve(SARSOPSolver(precision=0.002,verbose = false),cfv)
         p_qmdp = AlphaVectorPolicy(cfv, mdp_pol.qmat, mdp_pol.action_map)
 
-        solvers = [(p_sarsop, "SARSOP",DiscreteUpdater(cfv),:alpha,0),(p_qmdp, "QMDP",DiscreteUpdater(cfv),:belief,3),(p_prevobs,"Prev Obs MDP",PrevObsUpdater(cfv),:belief,3),(p_maxb, "Max Wt MDP",DiscreteUpdater(cfv),:belief,3)]
+        solvers = [(p_sarsop, "SARSOP",DiscreteUpdater(cfv),:alpha,0),(p_qmdp, "QMDP",DiscreteUpdater(cfv),:belief,0.009),(p_prevobs,"Prev Obs MDP",PrevObsUpdater(cfv),:belief,0.009),(p_maxb, "Max Wt MDP",DiscreteUpdater(cfv),:belief,0.009)]
         result = run_MC(cfv,n_runs,solvers);
         results = vcat(results,result);
         #add UnderlyingMDP to solution set
