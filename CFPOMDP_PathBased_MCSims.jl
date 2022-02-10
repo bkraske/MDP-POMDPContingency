@@ -179,7 +179,7 @@ function run_MC(m, n_runs, solvers) #Run all policies on given problem definitio
         push!(target_std, count_complete(m,result)[2])
 
         # [exact_reward,exact_completed,exact_failed,exact_steps] = run_single_PG(m, solver, updater, graphtype, precision=3)
-        exact_reward,exact_completed,exact_failed = run_single_PG(m, solver, updater, graphtype, precision)
+        exact_reward,exact_completed,exact_failed = run_single_PG2(m, solver, updater, graphtype, precision;disc = [0.95,0.99995,0.99995])
         push!(names,name*"-E")
         push!(reward_std, withintol(last(reward_mean),last(reward_std),exact_reward))
         push!(reward_mean, exact_reward)
@@ -281,6 +281,7 @@ function allrewards(m::CF_POMDP,s,a,sp)
 end
 
 function run_single_PG2(m, policy, updater, graphtype, precision; tolerance = 0.001, disc = discount(m))
+    t_start = time()
     up = updater
     # rew_fxn_list = [vectorizedReward,completedReward,failedReward,stepsReward]
     # rew_fxn_list = [(vectorizedReward,true),(completedReward,false),(failedReward,false)]
@@ -292,6 +293,8 @@ function run_single_PG2(m, policy, updater, graphtype, precision; tolerance = 0.
         pg = ExtractPolicyGraph(m,updater,policy::Policy,b0::DiscreteBelief)
     end
     result_array = EvalPolicyGraph(m,b0,pg;tolerance=tolerance,rewardfunction=allrewards,disc=disc)[1,3,:]
+    dt = time()-t_start
+    println("$dt ellapsed for PG")
     return result_array
 end
 # function run_PGs(m, solvers)
