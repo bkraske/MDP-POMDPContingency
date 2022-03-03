@@ -179,7 +179,7 @@ function run_MC(m, n_runs, solvers) #Run all policies on given problem definitio
         push!(target_std, count_complete(m,result)[2])
 
         # [exact_reward,exact_completed,exact_failed,exact_steps] = run_single_PG(m, solver, updater, graphtype, precision=3)
-        exact_reward,exact_completed,exact_failed = run_single_PG2(m, solver, updater, graphtype, precision;disc = [0.95,0.99995,0.99995])
+        exact_reward,exact_completed,exact_failed = run_single_PG2(m, solver, updater, graphtype, precision;disc = [0.95,0.999995,0.99995])
         push!(names,name*"-E")
         push!(reward_std, withintol(last(reward_mean),last(reward_std),exact_reward))
         push!(reward_mean, exact_reward)
